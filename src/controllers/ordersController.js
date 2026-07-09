@@ -132,61 +132,33 @@ exports.createOrder = async (req, res) => {
 
 /**
  * POST /api/orders/:id/proof
- * Sube el comprobante SINPE. Se guarda como binario directo en la base
- * de datos (no en disco) para que sobreviva a los redeploys de Render.
+ * Sube el comprobante SINPE (multer ya dejó el archivo en /uploads).
  */
 exports.uploadProof = async (req, res) => {
   try {
     console.log('[uploadProof] orderId:', req.params.id);
     console.log('[uploadProof] req.file presente:', !!req.file);
     if (req.file) {
-      console.log('[uploadProof] mimetype:', req.file.mimetype, '- tamaño buffer:', req.file.buffer?.length);
+      console.log('[uploadProof] filename:', req.file.filename, '- path:', req.file.path);
     }
 
     if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
 
+    const url = `/uploads/${req.file.filename}`;
+    console.log('[uploadProof] url a guardar:', url);
+
     const pool = await getPool();
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
-      .input('data', sql.VarBinary(sql.MAX), req.file.buffer)
-      .input('mime', sql.NVarChar, req.file.mimetype)
-      .query(`
-        UPDATE orders
-        SET payment_proof_data = @data, payment_proof_mimetype = @mime
-        WHERE id = @id
-      `);
+      .input('url', sql.NVarChar, url)
+      .query(`UPDATE orders SET payment_proof_url = @url WHERE id = @id`);
 
-    console.log('[uploadProof] filas afectadas por el UPDATE:', result.rowsAffected);
+    console.log('[uploadProof] filas afectadas:', result.rowsAffected);
 
-    res.json({ ok: true });
+    res.json({ url });
   } catch (err) {
     console.error('[uploadProof] ERROR:', err);
     res.status(500).json({ error: 'Error al subir el comprobante' });
-  }
-};
-
-/**
- * GET /api/orders/:id/proof-image
- * Sirve el comprobante guardado en la BD (lo usa el panel de admin
- * para mostrar la imagen/PDF al revisar la orden).
- */
-exports.getProofImage = async (req, res) => {
-  try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query(`SELECT payment_proof_data, payment_proof_mimetype FROM orders WHERE id = @id`);
-
-    const row = result.recordset[0];
-    if (!row || !row.payment_proof_data) {
-      return res.status(404).json({ error: 'Comprobante no encontrado' });
-    }
-
-    res.set('Content-Type', row.payment_proof_mimetype || 'application/octet-stream');
-    res.send(row.payment_proof_data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al obtener el comprobante' });
   }
 };
 
@@ -201,8 +173,7 @@ exports.getOrder = async (req, res) => {
     const order = await pool.request()
       .input('id', sql.Int, req.params.id)
       .query(`
-        SELECT o.id, o.status, o.total_amount, o.created_at,
-               CASE WHEN o.payment_proof_data IS NOT NULL THEN 1 ELSE 0 END AS has_proof,
+        SELECT o.id, o.status, o.total_amount, o.payment_proof_url, o.created_at,
                c.name, c.phone, c.email
         FROM orders o
         JOIN clients c ON c.id = o.client_id
