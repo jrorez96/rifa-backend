@@ -2,10 +2,10 @@ const cron = require('node-cron');
 const { getPool, sql } = require('../config/db');
 
 /**
- * Corre cada minuto. Busca números en estado 'reserved' cuyo
- * hold_expires_at ya pasó y cuya orden sigue 'pending' (el cliente
- * nunca completó el pago / el admin nunca confirmó a tiempo).
- * Los libera y marca la orden como 'expired'.
+ * Corre cada minuto. Libera un número reservado cuando se venció el
+ * hold total (hold_expires_at, ej. 24h) sin que el admin confirmara
+ * el pago. Un solo tiempo para todo el proceso (subir comprobante +
+ * validación del admin), sin sub-límites.
  */
 function startExpireHoldsJob(io) {
   cron.schedule('* * * * *', async () => {
@@ -15,10 +15,11 @@ function startExpireHoldsJob(io) {
       const expired = await pool.request().query(`
         SELECT DISTINCT n.number_value, n.order_id
         FROM numbers n
+        JOIN orders o ON o.id = n.order_id
         WHERE n.status = 'reserved'
-          AND n.hold_expires_at IS NOT NULL
-          AND n.hold_expires_at < SYSUTCDATETIME()
           AND n.reserved_by_admin = 0
+          AND o.status = 'pending'
+          AND n.hold_expires_at < SYSUTCDATETIME()
       `);
 
       if (expired.recordset.length === 0) return;

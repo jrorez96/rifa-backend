@@ -12,14 +12,18 @@ const numbersRoutes = require('./routes/numbersRoutes');
 const ordersRoutes = require('./routes/ordersRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
+// Quita cualquier "/" final para que "https://sitio.com/" y "https://sitio.com"
+// se traten como el mismo origen (el navegador nunca manda la barra final).
+const FRONTEND_URL = (process.env.FRONTEND_URL || '*').replace(/\/+$/, '');
+
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || '*' }
+  cors: { origin: FRONTEND_URL }
 });
 
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

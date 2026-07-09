@@ -30,7 +30,7 @@ exports.getSettings = async (req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
-      SELECT price_per_number, draw_date, hold_minutes, admin_whatsapp
+      SELECT price_per_number, draw_date, hold_minutes, proof_upload_minutes, admin_whatsapp
       FROM raffle_settings WHERE id = 1
     `);
     res.json(result.recordset[0] || null);

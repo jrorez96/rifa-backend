@@ -21,10 +21,11 @@ async function main() {
     .input('price', sql.Decimal(10, 2), Number(process.env.PRICE_PER_NUMBER) || 1000)
     .input('drawDate', sql.DateTime2, new Date('2026-10-25T00:00:00'))
     .input('holdMinutes', sql.Int, Number(process.env.HOLD_MINUTES) || 1440)
+    .input('proofUploadMinutes', sql.Int, Number(process.env.PROOF_UPLOAD_MINUTES) || 15)
     .input('whatsapp', sql.NVarChar, process.env.ADMIN_WHATSAPP || '50662132462')
     .query(`
-      INSERT INTO raffle_settings (id, price_per_number, draw_date, hold_minutes, admin_whatsapp)
-      VALUES (1, @price, @drawDate, @holdMinutes, @whatsapp)
+      INSERT INTO raffle_settings (id, price_per_number, draw_date, hold_minutes, proof_upload_minutes, admin_whatsapp)
+      VALUES (1, @price, @drawDate, @holdMinutes, @proofUploadMinutes, @whatsapp)
     `);
 
   console.log('Configuración inicial de la rifa creada.');
